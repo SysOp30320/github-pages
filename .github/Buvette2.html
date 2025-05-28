@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Compteur de Consommations</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 10px 8px;
+      text-align: center;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 18px;
+      color: #222;
+      font-weight: bold;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .product-row {
+      background: #ffffff;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+      font-size: 17px;
+      font-weight: bold;
+      color: #333;
+      cursor: pointer;
+    }
+
+    .product-name {
+      text-align: center;
+      font-size: 19px;
+      font-weight: bold;
+    }
+
+    #resetBtn, #undoBtn {
+      background-color: #1976d2;
+      color: white;
+      padding: 14px;
+      margin-top: 12px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 18px;
+      width: 100%;
+      max-width: 360px;
+      font-weight: bold;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    #resetBtn {
+      background-color: #e53935;
+    }
+
+    #undoBtn:disabled {
+      background-color: #aaa;
+      cursor: not-allowed;
+    }
+
+    #infos {
+      margin-top: 20px;
+      font-size: 24px;
+      font-weight: 700;
+      color: #000;
+    }
+
+    #recap {
+      margin-top: 18px;
+      font-size: 20px;
+      text-align: left;
+      display: inline-block;
+      background: white;
+      padding: 12px;
+      border-radius: 10px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      max-width: 360px;
+      width: 90vw;
+      color: #333;
+      font-weight: bold;
+    }
+
+    #payment {
+      margin-top: 20px;
+      max-width: 360px;
+      width: 90vw;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: left;
+      color: #222;
+      font-size: 16px;
+    }
+
+    label {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    input[type="number"] {
+      font-size: 18px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1.5px solid #ccc;
+      width: 100%;
+      margin-top: 6px;
+      box-sizing: border-box;
+    }
+
+    #rendu {
+      margin-top: 12px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #2e7d32;
+      min-height: 30px;
+    }
+
+    #confirmation {
+      margin-top: 10px;
+      font-size: 16px;
+      color: #2e7d32;
+      font-weight: bold;
+      min-height: 20px;
+      transition: opacity 0.3s ease;
+    }
+
+    #logo {
+      margin-top: 30px;
+      max-width: 180px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Compteur de Consommations</h1>
+
+  <div class="button-grid" id="productContainer"></div>
+
+  <button id="resetBtn">Remise à zéro</button>
+  <button id="undoBtn" disabled>Annuler dernier ajout</button>
+  <div id="confirmation"></div>
+
+  <div id="infos">Total: 0,00 €</div>
+
+  <div id="payment">
+    <label for="montantDonne"><strong>Montant donné (€) :</strong></label><br />
+    <input type="number" id="montantDonne" step="0.01" min="0" placeholder="0.00" />
+    <div id="rendu">À rendre : 0,00 €</div>
+  </div>
+
+  <div id="recap"></div>
+
+  <img src="LogoOriginelBleu_jauneteeshirt.png" id="logo" alt="Logo Club" />
+
+  <script>
+    let total = 0;
+    let lastItem = null;
+    let confirmationTimeout = null;
+
+    const format = n => n.toFixed(2).replace('.', ',');
+    const totalDisplay = document.getElementById('infos');
+    const recap = document.getElementById('recap');
+    const renduDisplay = document.getElementById('rendu');
+    const montantInput = document.getElementById('montantDonne');
+    const container = document.getElementById('productContainer');
+    const undoBtn = document.getElementById('undoBtn');
+    const confirmation = document.getElementById('confirmation');
+
+    const items = [
+      { label: 'Bière avec consigne', price: 3.50 },
+      { label: 'Bière sans consigne', price: 2.50 },
+      { label: 'Sucette', price: 0.40 },
+      { label: 'Bonbons', price: 0.80 },
+      { label: 'Piroulis', price: 0.80 },
+      { label: 'Barre de chocolat', price: 1.50 },
+      { label: 'Canette', price: 2.00 },
+      { label: 'Chips', price: 0.50 },
+      { label: 'Panini Choco', price: 3.00 },
+      { label: 'Panini Salé', price: 4.00 },
+      { label: 'Café/Thé', price: 1.50 },
+      { label: 'Menu Steak frites', price: 8.00 },
+      { label: 'Menu nuggets frite', price: 8.00 },
+      { label: 'Barquette Frites', price: 2.00 },
+      { label: 'Sandwich Américain seul', price: 6.00 }
+    ];
+
+    items.forEach((item, idx) => {
+      item.count = 0;
+
+      const row = document.createElement('div');
+      row.className = 'product-row';
+      row.style.backgroundColor = getColor(idx);
+
+      const name = document.createElement('div');
+      name.className = 'product-name';
+      name.textContent = `${item.label} (0) (+${format(item.price)} €)`;
+
+      row.onclick = () => {
+        item.count++;
+        total += item.price;
+        lastItem = item;
+        updateDisplay();
+        undoBtn.disabled = false;
+      };
+
+      row.appendChild(name);
+      item.nameElement = name;
+      container.appendChild(row);
+    });
+
+    function getColor(index) {
+      const pastelColors = ["#aed581", "#81d4fa", "#ffcc80", "#ce93d8", "#f48fb1", "#9fa8da", "#80cbc4", "#e6ee9c", "#fff59d", "#ffe082", "#80deea", "#b0bec5", "#bcaaa4", "#ef9a9a", "#c5e1a5"];
+      return pastelColors[index % pastelColors.length];
+    }
+
+    function updateDisplay() {
+      totalDisplay.textContent = `Total: ${format(total)} €`;
+      const achats = items.filter(i => i.count > 0);
+      recap.innerHTML = '<strong>Récapitulatif :</strong><br>' +
+        (achats.length > 0 ? achats.map(i => `${i.label} : ${i.count}`).join('<br>') : 'Aucun article sélectionné');
+      items.forEach(i => {
+        i.nameElement.textContent = `${i.label} (${i.count}) (+${format(i.price)} €)`;
+      });
+      updateRendu();
+    }
+
+    function updateRendu() {
+      const donne = parseFloat(montantInput.value.replace(',', '.')) || 0;
+      const rendu = donne - total;
+      renduDisplay.textContent = `À rendre : ${format(rendu >= 0 ? rendu : 0)} €`;
+    }
+
+    function showConfirmation(message) {
+      confirmation.textContent = message;
+      if (confirmationTimeout) clearTimeout(confirmationTimeout);
+      confirmationTimeout = setTimeout(() => {
+        confirmation.textContent = '';
+      }, 3000);
+    }
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      total = 0;
+      lastItem = null;
+      items.forEach(item => item.count = 0);
+      montantInput.value = '';
+      undoBtn.disabled = true;
+      updateDisplay();
+      confirmation.textContent = '';
+    });
+
+    undoBtn.addEventListener('click', () => {
+      if (lastItem && lastItem.count > 0) {
+        lastItem.count--;
+        total -= lastItem.price;
+        showConfirmation(`➖ ${lastItem.label} annulé`);
+        if (lastItem.count === 0) lastItem = null;
+        updateDisplay();
+      }
+      if (!lastItem || lastItem.count === 0) {
+        undoBtn.disabled = true;
+      }
+    });
+
+    montantInput.addEventListener('input', updateRendu);
+    updateDisplay();
+  </script>
+
+</body>
+</html>
